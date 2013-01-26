@@ -25,7 +25,7 @@ public class FirstTry {
 		// Instances train = new Instances(dataReader);
 
 		// The DataSource class is not limited to ARFF files. It can also read CSV files and other formats (basically all file formats that Weka can import via its converters).
-		DataSource dataSource = new DataSource("/some/where/data.arff");
+		DataSource dataSource = new DataSource("dataset/iris.arff");
 		Instances train = dataSource.getDataSet();
 		
 		// Setting the class attribute, by default, in an ARFF file, it is the last attribute

@@ -9,19 +9,21 @@ import java.util.Vector;
 
 import weka.classifiers.Classifier;
 import weka.classifiers.Evaluation;
+import weka.core.Instance;
 import weka.core.Instances;
 import weka.core.Utils;
 
 public class ModelSelection {
 
+	protected static final String PROPERTY_DATASET = "DATASET";  // property name of property holding data file
 	/** the classifier used internally */
-	protected Vector<Classifier> m_Classifiers = null;
+	protected Vector<Classifier> m_Classifiers = new Vector<Classifier>();
 
 	/** the training file */
-	protected String m_TrainingFile = null;
+	protected String m_DatasetFile = null;
 
 	/** the training instances */
-	protected Instances m_TrainingInstances = null;
+	protected Instances m_Instances = null;
 
 	/** for evaluating the classifier */
 	protected Evaluation m_Evaluation = null;
@@ -60,19 +62,27 @@ public class ModelSelection {
         for (String p : orderdProperties) {
             String options[] = Utils.splitOptions(properties.getProperty(p));		// split
             String classifierName = options[0];										// [0] name
-            String classifierOptions[] = new String[options.length - 1];			// allocate options array
-            
-            System.arraycopy(options, 1, classifierOptions, 0, options.length-1);	// copy the options
             
             System.out.println("classifer name : " + classifierName);
-            int n = 0;
-            for( String s : classifierOptions ) {
-            	System.out.println("   option["+n+"] "+s);
-            	n++;
+            
+            String classifierOptions[] = null;
+            if( options.length > 1 ) {
+            	classifierOptions = new String[options.length - 1];			// allocate options array
+	            
+	            System.arraycopy(options, 1, classifierOptions, 0, options.length-1);	// copy the options
+	            	            
+	            int n = 0;
+	            for( String s : classifierOptions ) {
+	            	System.out.println("   option["+n+"] "+s);
+	            	n++;
+	            }
             }
 
             // create classifier with specified options and append to classifier pool
+
             m_Classifiers.add( (Classifier)Utils.forName(Classifier.class,	classifierName, classifierOptions) );
+
+            // Classifier c = (Classifier)Utils.forName(Classifier.class,	"weka.classifiers.trees.RandomForest", null);
         }
 		
         
@@ -82,11 +92,15 @@ public class ModelSelection {
 	/**
 	 * sets the file to use for training
 	 */
-	public void setTraining(String name) throws Exception {
-		m_TrainingFile = name;
-		m_TrainingInstances = new Instances(new BufferedReader(new FileReader(
-				m_TrainingFile)));
-		m_TrainingInstances.setClassIndex(m_TrainingInstances.numAttributes() - 1);
+	public void loadInstances(String name) throws Exception {
+		m_DatasetFile = name;
+		m_Instances = new Instances(new BufferedReader(new FileReader(
+				m_DatasetFile)));
+		m_Instances.setClassIndex(m_Instances.numAttributes() - 1);
+		
+		// split instances into three sets: train, test, 3rd for generalization
+		
+		// how to split??? Instances
 	
 
 	}
@@ -121,27 +135,30 @@ public class ModelSelection {
 		
 		// TODO Auto-generated method stub
 		try {
-			// writer = new FileWriter( "properties.txt" );
-			//
-			// Properties prop1 = new Properties( System.getProperties() );
-			// prop1.setProperty( "MeinNameIst", "Forrest Gump" );
-			// prop1.store( writer, "Eine Insel mit zwei Bergen" );
-
 
 			Properties properties = loadProperties("modelselection.properties");
-			modelSelection.setClassifiers(properties);
+			modelSelection.setClassifiers(properties); // create classifier and add to list
+			
+			// load data set and split data set for training, testing and generalization
+			String datasetName = properties.getProperty(PROPERTY_DATASET);
+			modelSelection.loadInstances( datasetName );
+			
+			// train classifiers
+			// loop over classifier list and call buildClassifier(trainingDataset)
+			
+			// evaluation
 			
 			
+			// test classifiers
 			
-			System.out.println("unsorted:");
-						
-
-
-			// Iterator props = properties.keySet().iterator();
-			// while (props.hasNext()) {
-			// System.out.println(props.);
-			// props.next();
-			// }
+			// evaluation
+			
+			
+			// generalization error
+			
+			// evaluation
+			
+			
 
 			System.out.println("done");
 
