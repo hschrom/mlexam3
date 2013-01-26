@@ -1,4 +1,5 @@
 import java.io.BufferedReader;
+import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.Properties;
@@ -43,40 +44,37 @@ public class ModelSelection {
 		Set<String> propertyNames = properties.stringPropertyNames(); // properties.propertyNames();
 
 		// create orderd set with CLASSIFIER properties only
-		TreeSet<String> orderdClassifierProperties = new TreeSet<String>();
+		TreeSet<String> orderdProperties = new TreeSet<String>();
 		for (String p : propertyNames) {
 			String compare = p.toUpperCase();
 			if(compare.startsWith("CLASSIFIER"))
-				orderdClassifierProperties.add(p);
+				orderdProperties.add(p);
 		}
 		
-		// print classifier
-        for (String p : orderdClassifierProperties) {
-            System.out.print("property: "+p+" ");
-            System.out.println(properties.getProperty(p));
+		// split property strings into classifier name (1st part in string) and options (remaining parts)
+		// i.e.
+		//    weka.classifiers.functions.supportVector.PolyKernel -C 250007 -E 1.0
+		//       name: weka.classifiers.functions.supportVector.PolyKernel
+		//       options: -C 250007 -E 1.0
+		//
+        for (String p : orderdProperties) {
+            String options[] = Utils.splitOptions(properties.getProperty(p));		// split
+            String classifierName = options[0];										// [0] name
+            String classifierOptions[] = new String[options.length - 1];			// allocate options array
             
-            String property = properties.getProperty(p).trim();
-            String classifierName = new String();
-            String options = new String();
-           
-            int index = property.indexOf(' ');
-            if ( index > 0 ) {
-            	classifierName = property.substring(0, index);
-            	options = property.substring(index);
-            	options = options.trim();
+            System.arraycopy(options, 1, classifierOptions, 0, options.length-1);	// copy the options
+            
+            System.out.println("classifer name : " + classifierName);
+            int n = 0;
+            for( String s : classifierOptions ) {
+            	System.out.println("   option["+n+"] "+s);
+            	n++;
             }
-            else
-            	classifierName = property; // no white space, therfore no options part found
-            	
-            String classifierOptions[] = Utils.splitOptions(options);
-            System.out.println("classifierName: "+ classifierName + ":: options: "+options);
-            Classifier classifier = (Classifier)Utils.forName(Classifier.class,	classifierName, classifierOptions);
-            m_Classifiers.add(classifier);
 
+            // create classifier with specified options and append to classifier pool
+            m_Classifiers.add( (Classifier)Utils.forName(Classifier.class,	classifierName, classifierOptions) );
         }
 		
-        // split property field
-        // Classifier c = (Classifier)Utils.forName(Classifier.class,	"weka.classifiers.trees.RandomForest", null);
         
 // 		m_Classifier = Classifier.forName(name, options);
 	}
@@ -89,8 +87,25 @@ public class ModelSelection {
 		m_TrainingInstances = new Instances(new BufferedReader(new FileReader(
 				m_TrainingFile)));
 		m_TrainingInstances.setClassIndex(m_TrainingInstances.numAttributes() - 1);
-	}
+	
 
+	}
+	
+	/**
+	 * Load the properties list from the file with the specified property file name.
+	 * @param propertyFilename
+	 * @return
+	 * @throws FileNotFoundException
+	 * @throws IOException
+	 */
+	private static Properties loadProperties(String propertyFilename) throws FileNotFoundException, IOException {
+		// read the property file
+		Properties properties = new Properties();
+		properties.load(new FileReader(propertyFilename));
+		properties.list(System.out);
+		
+		return properties;
+	}
 	/**
 	 * @param args
 	 * @throws Exception 
@@ -104,7 +119,6 @@ public class ModelSelection {
 		
 		ModelSelection modelSelection = new ModelSelection();
 		
-		FileReader reader = null;
 		// TODO Auto-generated method stub
 		try {
 			// writer = new FileWriter( "properties.txt" );
@@ -113,14 +127,11 @@ public class ModelSelection {
 			// prop1.setProperty( "MeinNameIst", "Forrest Gump" );
 			// prop1.store( writer, "Eine Insel mit zwei Bergen" );
 
-			reader = new FileReader("modelselection.properties");
 
-			// read the property file
-			Properties properties = new Properties();
-			properties.load(reader);
-			properties.list(System.out);
-
+			Properties properties = loadProperties("modelselection.properties");
 			modelSelection.setClassifiers(properties);
+			
+			
 			
 			System.out.println("unsorted:");
 						
@@ -139,7 +150,7 @@ public class ModelSelection {
 		} finally {
 
 			try {
-				reader.close();
+				//reader.close();
 			} catch (Exception e) {
 			}
 		}
