@@ -1,20 +1,20 @@
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
-import java.util.Collections;
-import java.util.List;
 import java.util.Properties;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.Vector;
 
 import weka.classifiers.Classifier;
 import weka.classifiers.Evaluation;
 import weka.core.Instances;
+import weka.core.Utils;
 
 public class ModelSelection {
 
 	/** the classifier used internally */
-	protected Classifier m_Classifier = null;
+	protected Vector<Classifier> m_Classifiers = null;
 
 	/** the training file */
 	protected String m_TrainingFile = null;
@@ -36,25 +36,48 @@ public class ModelSelection {
 	 *            the classname of the classifier
 	 * @param options
 	 *            the options for the classifier
+	 * @throws Exception 
 	 */
-	public void setClassifiers(Properties properties)  {
+	public void setClassifiers(Properties properties) throws Exception  {
 		// get property name list
 		Set<String> propertyNames = properties.stringPropertyNames(); // properties.propertyNames();
 
 		// create orderd set with CLASSIFIER properties only
 		TreeSet<String> orderdClassifierProperties = new TreeSet<String>();
-		
 		for (String p : propertyNames) {
 			String compare = p.toUpperCase();
 			if(compare.startsWith("CLASSIFIER"))
 				orderdClassifierProperties.add(p);
 		}
 		
-		
+		// print classifier
         for (String p : orderdClassifierProperties) {
-            System.out.println("property: "+p);
+            System.out.print("property: "+p+" ");
+            System.out.println(properties.getProperty(p));
+            
+            String property = properties.getProperty(p).trim();
+            String classifierName = new String();
+            String options = new String();
+           
+            int index = property.indexOf(' ');
+            if ( index > 0 ) {
+            	classifierName = property.substring(0, index);
+            	options = property.substring(index);
+            	options = options.trim();
+            }
+            else
+            	classifierName = property; // no white space, therfore no options part found
+            	
+            String classifierOptions[] = Utils.splitOptions(options);
+            System.out.println("classifierName: "+ classifierName + ":: options: "+options);
+            Classifier classifier = (Classifier)Utils.forName(Classifier.class,	classifierName, classifierOptions);
+            m_Classifiers.add(classifier);
+
         }
 		
+        // split property field
+        // Classifier c = (Classifier)Utils.forName(Classifier.class,	"weka.classifiers.trees.RandomForest", null);
+        
 // 		m_Classifier = Classifier.forName(name, options);
 	}
 
@@ -70,8 +93,9 @@ public class ModelSelection {
 
 	/**
 	 * @param args
+	 * @throws Exception 
 	 */
-	public static void main(String[] args) {
+	public static void main(String[] args) throws Exception {
 		
 		if( args.length < 2) {
 			System.out.println(usage());
