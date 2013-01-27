@@ -1,8 +1,13 @@
+/**
+ * ModelSelection
+ * @author Helmut Schrom-Feiertag
+ * @author Andreas Ejupi
+ */
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
-import java.util.Iterator;
+import java.text.Collator;
 import java.util.Properties;
 import java.util.Set;
 import java.util.TreeSet;
@@ -20,6 +25,12 @@ public class ModelSelection {
 																// of property
 																// holding data
 																// file
+	protected static final String PROPERTY_DATASPLIT = "DATASPLIT"; // property name
+	
+	protected static final String PROPERTY_SEED = "SEED";		// property name for seed value
+
+	protected int m_RandomSeed = 1;
+
 	/** the classifier used internally */
 	protected Vector<Classifier> m_Classifiers = new Vector<Classifier>();
 
@@ -28,6 +39,11 @@ public class ModelSelection {
 	protected Vector<Evaluation> m_GeneralizationEvaluation = new Vector<Evaluation>();
 	
 	Vector<String> m_OrderedClassifierWithProperties = new Vector<String>();
+	
+	Double m_SplitTraining = 0.2;		// 30 % of data default setings
+	Double m_SplitTest = 0.4;			// 30 % of data
+	Double m_SplitGeneralization = 0.4; // 40 % of data
+
 
 	/** the training file */
 	protected String m_DatasetFile = null;
@@ -47,6 +63,22 @@ public class ModelSelection {
 		// TODO Auto-generated constructor stub
 	}
 
+	
+	/**
+	 * set the split values from properties
+	 * @param properties
+	 * @throws Exception
+	 */
+	protected void setSplit(Properties properties) throws Exception {
+		String values[] = Utils.splitOptions(properties.getProperty(PROPERTY_DATASPLIT)); // split
+		
+		m_SplitTraining = Double.parseDouble(values[0]);
+		m_SplitTest = Double.parseDouble(values[1]);
+		m_SplitGeneralization = Double.parseDouble(values[2]);
+				
+	}
+
+
 	/**
 	 * sets the classifiers to use
 	 * 
@@ -61,9 +93,10 @@ public class ModelSelection {
 		Set<String> propertyNames = properties.stringPropertyNames(); // properties.propertyNames();
 
 		// create orderd set with CLASSIFIER properties only
-		TreeSet<String> orderedProperties = new TreeSet<String>();
+		TreeSet<String> orderedProperties = new TreeSet<String>(Collator.getInstance());
 		for (String p : propertyNames) {
 			String compare = p.toUpperCase();
+			System.out.println("test classifier name: "+p);
 			if (compare.startsWith("CLASSIFIER"))
 				orderedProperties.add(p);
 		}
@@ -120,13 +153,12 @@ public class ModelSelection {
 				m_DatasetFile)));
 		m_Instances.setClassIndex(m_Instances.numAttributes() - 1);
 
-		Random random = new Random();
-		m_Instances.randomize(random);
+		m_Instances.randomize(m_Instances.getRandomNumberGenerator(m_RandomSeed));
 
 		// Create subsets of instances for train, test 1 and test 2
 		int num = m_Instances.numInstances();
-		int numTraining = (int) (num * 0.33);
-		int numTesting = (int) (num * 0.33);
+		int numTraining = (int) (num * m_SplitTraining);
+		int numTesting = (int) (num * m_SplitTest);
 		int numGen = num - numTraining - numTesting;
 
 		System.out.println("Data split: " + numTraining + " training, "
@@ -137,6 +169,14 @@ public class ModelSelection {
 		m_Generalization = new Instances(m_Instances, numTraining + numTesting,
 				numGen);
 
+	}
+	
+	/**
+	 * set the random seed with value from property file
+	 * @param properties
+	 */
+	protected void setRandomSeed(Properties properties) {
+		m_RandomSeed = (int)(Double.parseDouble(properties.getProperty(PROPERTY_SEED)));
 	}
 
 	/**
@@ -218,6 +258,12 @@ public class ModelSelection {
 
 	}
 
+	/**
+	 * create formatted summary string of classifier evaluation result using weighted average.
+	 * @param eval
+	 * @param classifier
+	 * @return
+	 */
 	protected String toSummaryString(Evaluation eval, String classifier) {
 		StringBuffer text = new StringBuffer();
 
@@ -242,6 +288,10 @@ public class ModelSelection {
 
 	}
 
+	/**
+	 * print the evaluation summary of all classifier as table
+	 * @throws Exception
+	 */
 	protected void summary() throws Exception {
 
 		double maxAreaUnderROC = 0.;
@@ -267,6 +317,11 @@ public class ModelSelection {
 		
 		i = 0;
 		System.out.println("\nGeneralization on 3rd set");
+		
+		System.out.println("\n                 TP Rate  FP Rate"
+				+ "  Precision  Recall"
+				+ "  F-Measure  MCC    ROC Area  PRC Area  Classifier + Options\n");
+
 		for (Evaluation eval : m_GeneralizationEvaluation) {
 			if ( eval.weightedAreaUnderROC() > maxAreaUnderROC ) {
 				maxAreaUnderROC = eval.weightedAreaUnderROC();
@@ -279,8 +334,10 @@ public class ModelSelection {
 		System.out.println("\nBest classifier on evaluation set with ROC Area " +maxAreaUnderROC+" "+ m_OrderedClassifierWithProperties.get(classifierIndex));
 
 	}
-
+	
+	
 	/**
+	 * entry point for model selection, args has to specify the porperty filename "-f <filename>"
 	 * @param args
 	 * @throws Exception
 	 */
@@ -293,13 +350,20 @@ public class ModelSelection {
 
 		ModelSelection modelSelection = new ModelSelection();
 
-		// TODO Auto-generated method stub
 		try {
 
-			// String propertyFilename = Utils.getOption('f', args);
-			// Properties properties = loadProperties(propertyFilename);
+			String propertyFilename = Utils.getOption('f', args);
+			if (propertyFilename.length()==0) {
+				System.out.println("Option -f <filenam> not found.");
+				System.out.println(usage());
+				
+				System.exit(0);
+			}
+			Properties properties = loadProperties(propertyFilename);
 
-			Properties properties = loadProperties("modelselection.properties");
+			modelSelection.setSplit(properties);
+			modelSelection.setRandomSeed(properties);
+			
 			modelSelection.setClassifiers(properties); // create classifier and
 														// add to list
 
@@ -343,22 +407,3 @@ public class ModelSelection {
 
 }
 
-// http://weka.wikispaces.com/Use+WEKA+in+your+Java+code
-// Train/test set
-// In case you have a dedicated test set, you can train the classifier and then
-// evaluate it on this test set. In the following example, a J48 is
-// instantiated, trained and then evaluated. Some statistics are printed to
-// stdout:
-// import weka.core.Instances;
-// import weka.classifiers.Evaluation;
-// import weka.classifiers.trees.J48;
-// ...
-// Instances train = ... // from somewhere
-// Instances test = ... // from somewhere
-// // train classifier
-// Classifier cls = new J48();
-// cls.buildClassifier(train);
-// // evaluate classifier and print some statistics
-// Evaluation eval = new Evaluation(train);
-// eval.evaluateModel(cls, test);
-// System.out.println(eval.toSummaryString("\nResults\n======\n", false));
