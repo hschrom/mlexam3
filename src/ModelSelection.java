@@ -22,9 +22,9 @@ public class ModelSelection {
 																// file
 	/** the classifier used internally */
 	protected Vector<Classifier> m_Classifiers = new Vector<Classifier>();
-	
+
 	protected Vector<Evaluation> m_TestEvaluation = new Vector<Evaluation>();
-	
+
 	protected Vector<Evaluation> m_GeneralizationEvaluation = new Vector<Evaluation>();
 
 	/** the training file */
@@ -78,7 +78,8 @@ public class ModelSelection {
 			String options[] = Utils.splitOptions(properties.getProperty(p)); // split
 			String classifierName = options[0]; // [0] name
 
-			System.out.println("classifier name : " + properties.getProperty(p));
+			System.out
+					.println("classifier name : " + properties.getProperty(p));
 
 			String classifierOptions[] = null;
 			if (options.length > 1) {
@@ -89,11 +90,11 @@ public class ModelSelection {
 				System.arraycopy(options, 1, classifierOptions, 0,
 						options.length - 1); // copy the options
 
-//				int n = 0;
-//				for (String s : classifierOptions) {
-//					System.out.println("   option[" + n + "] " + s);
-//					n++;
-//				}
+				// int n = 0;
+				// for (String s : classifierOptions) {
+				// System.out.println("   option[" + n + "] " + s);
+				// n++;
+				// }
 			}
 
 			// create classifier with specified options and append to classifier
@@ -110,26 +111,28 @@ public class ModelSelection {
 	 * sets the file to use for training
 	 */
 	public void loadInstances(String name) throws Exception {
-		
+
 		m_DatasetFile = name;
 		m_Instances = new Instances(new BufferedReader(new FileReader(
 				m_DatasetFile)));
 		m_Instances.setClassIndex(m_Instances.numAttributes() - 1);
-		
+
 		Random random = new Random();
 		m_Instances.randomize(random);
-		
-	    // Create subsets of instances for train, test 1 and test 2
+
+		// Create subsets of instances for train, test 1 and test 2
 		int num = m_Instances.numInstances();
-		int numTraining = (int) (num*0.33);
-		int numTesting 	= (int) (num*0.33);
-		int numGen   	= num - numTraining - numTesting;
-		
-		System.out.println("Data split: "+numTraining+" training, "+numTesting+" testing,"+numGen+" test generalization");
-		
-	    m_Training 		= new Instances(m_Instances, 0, numTraining);
-	    m_Testing     	= new Instances(m_Instances, numTraining, numTesting);
-	    m_Generalization = new Instances(m_Instances, numTraining + numTesting, numGen );
+		int numTraining = (int) (num * 0.33);
+		int numTesting = (int) (num * 0.33);
+		int numGen = num - numTraining - numTesting;
+
+		System.out.println("Data split: " + numTraining + " training, "
+				+ numTesting + " testing," + numGen + " test generalization");
+
+		m_Training = new Instances(m_Instances, 0, numTraining);
+		m_Testing = new Instances(m_Instances, numTraining, numTesting);
+		m_Generalization = new Instances(m_Instances, numTraining + numTesting,
+				numGen);
 
 	}
 
@@ -152,51 +155,98 @@ public class ModelSelection {
 
 		return properties;
 	}
-	
+
 	/**
 	 * loop over all classifier and train the models.
+	 * 
 	 * @throws Exception
 	 */
 	protected void trainClassifiers() throws Exception {
-		
-		for(Classifier classifier : m_Classifiers) {
+
+		for (Classifier classifier : m_Classifiers) {
 			classifier.buildClassifier(m_Training);
 		}
 	}
-	
+
 	protected void evaluateModels() throws Exception {
 
 		System.out.println("\n\n-- Model Evaluation --\n");
-		for(Classifier classifier : m_Classifiers) {
-			
+		for (Classifier classifier : m_Classifiers) {
+
 			Evaluation eval = new Evaluation(m_Testing);
 			eval.evaluateModel(classifier, m_Testing);
 			m_TestEvaluation.add(eval);
-			
-			System.out.println(eval.toSummaryString("RESULTS: "+classifier.toString() + "=============", true));
 
-			System.out.println("fMeasure = " + eval.fMeasure(1) + ", Area under ROC = "+eval.areaUnderROC(1)+", precision = " + eval.precision(1)+ ", recall = "+ eval.recall(1));
+			System.out.println(eval.toSummaryString("\n\n== RESULTS: "
+					+ classifier.toString() + "=============", true));
+
+			System.out.println("fMeasure = " + eval.fMeasure(1)
+					+ ", Area under ROC = " + eval.areaUnderROC(1)
+					+ ", precision = " + eval.precision(1) + ", recall = "
+					+ eval.recall(1));
 
 		}
 	}
-	
+
 	protected void evaluateGeneralization() throws Exception {
 
 		System.out.println("\n\n-- Model Generalization Evaluation --\n");
-		for(Classifier classifier : m_Classifiers) {
-			
+		for (Classifier classifier : m_Classifiers) {
+
 			Evaluation eval = new Evaluation(m_Generalization);
 			eval.evaluateModel(classifier, m_Generalization);
 			m_GeneralizationEvaluation.add(eval);
-			
-			System.out.println(eval.toSummaryString("RESULTS: "+classifier.toString() + "=============", false));
 
-			System.out.println("fMeasure = " + eval.fMeasure(1) + ", Area under ROC = "+eval.areaUnderROC(1)+", precision = " + eval.precision(1)+ ", recall = "+ eval.recall(1));
-//			System.out.println("correctly classified: "+ eval.correct()+"incorrect classified: "+eval.incorrect());
+			System.out.println(eval.toSummaryString(
+					"RESULTS: " + classifier.toString() + "=============",
+					false));
 		}
-		
+
 	}
- 
+
+	protected String toSummaryString(Evaluation eval, weka.classifiers.Classifier classifier) {
+		StringBuffer text = new StringBuffer();
+
+		text.append("Weighted Avg.  "
+				+ Utils.doubleToString(eval.weightedTruePositiveRate(), 7, 3));
+		text.append("  "
+				+ Utils.doubleToString(eval.weightedFalsePositiveRate(), 7, 3));
+		text.append("  " + Utils.doubleToString(eval.weightedPrecision(), 7, 3));
+		text.append("    " + Utils.doubleToString(eval.weightedRecall(), 7, 3));
+		text.append(" " + Utils.doubleToString(eval.weightedFMeasure(), 7, 3));
+		text.append("    "
+				+ Utils.doubleToString(eval.weightedMatthewsCorrelation(), 7, 3));
+		text.append(""
+				+ Utils.doubleToString(eval.weightedAreaUnderROC(), 7, 3));
+		text.append("   "
+				+ Utils.doubleToString(eval.weightedAreaUnderPRC(), 7, 3));
+		text.append("   "+classifier.getClass().getName());
+
+
+
+		return text.toString();
+
+	}
+
+	protected void summary() throws Exception {
+
+		System.out.println("\n                 TP Rate  FP Rate"
+				+ "  Precision  Recall"
+				+ "  F-Measure  MCC    ROC Area  PRC Area\n");
+
+		int i = 0;
+		System.out.println("Model evaluation on 2nd set");
+		for (Evaluation eval : m_TestEvaluation) {
+			System.out.println(toSummaryString(eval, m_Classifiers.get(i++)));
+		}
+		i = 0;
+		System.out.println("\nGeneralization on 3rd set");
+		for (Evaluation eval : m_GeneralizationEvaluation) {
+			System.out.println(toSummaryString(eval, m_Classifiers.get(i++)));
+		}
+
+	}
+
 	/**
 	 * @param args
 	 * @throws Exception
@@ -227,14 +277,14 @@ public class ModelSelection {
 
 			// train classifiers with training dataset
 			modelSelection.trainClassifiers();
-			
+
 			// evaluation with test data
 			modelSelection.evaluateModels();
-			
-			// evaluation of the generalization error
-			modelSelection.evaluateGeneralization();			
-			
 
+			// evaluation of the generalization error
+			modelSelection.evaluateGeneralization();
+
+			modelSelection.summary();
 
 			System.out.println("done");
 
