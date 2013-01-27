@@ -2,6 +2,7 @@ import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.Iterator;
 import java.util.Properties;
 import java.util.Set;
 import java.util.TreeSet;
@@ -10,7 +11,6 @@ import java.util.Vector;
 import weka.classifiers.Classifier;
 import weka.classifiers.Evaluation;
 import weka.core.Debug.Random;
-import weka.core.Instance;
 import weka.core.Instances;
 import weka.core.Utils;
 
@@ -26,6 +26,8 @@ public class ModelSelection {
 	protected Vector<Evaluation> m_TestEvaluation = new Vector<Evaluation>();
 
 	protected Vector<Evaluation> m_GeneralizationEvaluation = new Vector<Evaluation>();
+	
+	Vector<String> m_OrderedClassifierWithProperties = new Vector<String>();
 
 	/** the training file */
 	protected String m_DatasetFile = null;
@@ -59,11 +61,11 @@ public class ModelSelection {
 		Set<String> propertyNames = properties.stringPropertyNames(); // properties.propertyNames();
 
 		// create orderd set with CLASSIFIER properties only
-		TreeSet<String> orderdProperties = new TreeSet<String>();
+		TreeSet<String> orderedProperties = new TreeSet<String>();
 		for (String p : propertyNames) {
 			String compare = p.toUpperCase();
 			if (compare.startsWith("CLASSIFIER"))
-				orderdProperties.add(p);
+				orderedProperties.add(p);
 		}
 
 		// split property strings into classifier name (1st part in string) and
@@ -74,7 +76,8 @@ public class ModelSelection {
 		// options: -C 250007 -E 1.0
 		//
 		System.out.println("-- listing classifiers --");
-		for (String p : orderdProperties) {
+		for (String p : orderedProperties) {
+			m_OrderedClassifierWithProperties.add(properties.getProperty(p));
 			String options[] = Utils.splitOptions(properties.getProperty(p)); // split
 			String classifierName = options[0]; // [0] name
 
@@ -168,6 +171,11 @@ public class ModelSelection {
 		}
 	}
 
+	/**
+	 * loop over all classifier and evaluate the models on test set 1
+	 * 
+	 * @throws Exception
+	 */
 	protected void evaluateModels() throws Exception {
 
 		System.out.println("\n\n-- Model Evaluation --\n");
@@ -188,6 +196,12 @@ public class ModelSelection {
 		}
 	}
 
+	/**
+	 * loop over all classifier and evaluate the models on test set 2 for generalization
+	 * 
+	 * @throws Exception
+	 */
+
 	protected void evaluateGeneralization() throws Exception {
 
 		System.out.println("\n\n-- Model Generalization Evaluation --\n");
@@ -204,7 +218,7 @@ public class ModelSelection {
 
 	}
 
-	protected String toSummaryString(Evaluation eval, weka.classifiers.Classifier classifier) {
+	protected String toSummaryString(Evaluation eval, String classifier) {
 		StringBuffer text = new StringBuffer();
 
 		text.append("Weighted Avg.  "
@@ -220,7 +234,7 @@ public class ModelSelection {
 				+ Utils.doubleToString(eval.weightedAreaUnderROC(), 7, 3));
 		text.append("   "
 				+ Utils.doubleToString(eval.weightedAreaUnderPRC(), 7, 3));
-		text.append("   "+classifier.getClass().getName());
+		text.append("     "+classifier);//classifier.getClass().getName());
 
 
 
@@ -230,20 +244,39 @@ public class ModelSelection {
 
 	protected void summary() throws Exception {
 
+		double maxAreaUnderROC = 0.;
+		int classifierIndex = 0;
+
+		System.out.println("Model evaluation on 2nd set");
+
 		System.out.println("\n                 TP Rate  FP Rate"
 				+ "  Precision  Recall"
-				+ "  F-Measure  MCC    ROC Area  PRC Area\n");
+				+ "  F-Measure  MCC    ROC Area  PRC Area  Classifier + Options\n");
 
 		int i = 0;
-		System.out.println("Model evaluation on 2nd set");
 		for (Evaluation eval : m_TestEvaluation) {
-			System.out.println(toSummaryString(eval, m_Classifiers.get(i++)));
+			if ( eval.weightedAreaUnderROC() > maxAreaUnderROC ) {
+				maxAreaUnderROC = eval.weightedAreaUnderROC();
+				classifierIndex = i;
+			}
+			System.out.println(toSummaryString(eval, m_OrderedClassifierWithProperties.get(i++)));
+			// System.out.println(toSummaryString(eval, m_Classifiers.get(i++)));
 		}
+		
+		System.out.println("\nBest classifier on test set with ROC Area " +maxAreaUnderROC+" "+ m_OrderedClassifierWithProperties.get(classifierIndex));
+		
 		i = 0;
 		System.out.println("\nGeneralization on 3rd set");
 		for (Evaluation eval : m_GeneralizationEvaluation) {
-			System.out.println(toSummaryString(eval, m_Classifiers.get(i++)));
+			if ( eval.weightedAreaUnderROC() > maxAreaUnderROC ) {
+				maxAreaUnderROC = eval.weightedAreaUnderROC();
+				classifierIndex = i;
+			}
+//			System.out.println(toSummaryString(eval, m_Classifiers.get(i++)));
+			System.out.println(toSummaryString(eval, m_OrderedClassifierWithProperties.get(i++)));
 		}
+
+		System.out.println("\nBest classifier on evaluation set with ROC Area " +maxAreaUnderROC+" "+ m_OrderedClassifierWithProperties.get(classifierIndex));
 
 	}
 
@@ -285,8 +318,6 @@ public class ModelSelection {
 			modelSelection.evaluateGeneralization();
 
 			modelSelection.summary();
-
-			System.out.println("done");
 
 		} catch (IOException e) {
 			e.printStackTrace();
