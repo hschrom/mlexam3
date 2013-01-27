@@ -44,7 +44,7 @@ public class FirstTry {
 		
 		System.out.println(eval.toSummaryString("\nResults Naive Bayes\n======\n", true));
 		System.out.println("fMeasure = " + eval.fMeasure(1) + ", precision = " + eval.precision(1)+ ", recall = "+ eval.recall(1));
-		
+		System.out.println("Area under ROC = "+eval.areaUnderROC(1));
 		
 		
 		// Start given classifier
